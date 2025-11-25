@@ -19,7 +19,8 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # It checks if the string 'True' is in the .env file
-DEBUG = os.getenv('DEBUG') == 'True'
+DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 'yes')
+
 
 # Handle the list of hosts (split by comma)
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
@@ -80,7 +81,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': BASE_DIR / 'db' / 'db.sqlite3',  # point to mounted persistent disk
     }
 }
 
@@ -138,7 +139,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # --- CORS SETTINGS ---
 # For development, we allow all origins. 
 # In production, we will change this to specific domains (e.g., your-school-app.com).
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS settings for production
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "https://school-exam-frontend.onrender.com",
+]
 
 
 # --- FILE UPLOAD SETTINGS ---
