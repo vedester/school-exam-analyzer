@@ -31,6 +31,11 @@ class ExamUpload(models.Model):
         blank=True,
         help_text="The generated result file with ranks and analysis"
     )
+
+
+    subject_chart = models.ImageField(upload_to='charts/', null=True, blank=True)
+    passrate_chart = models.ImageField(upload_to='charts/', null=True, blank=True)
+
     def __str__(self):
         return f"{self.title} - {self.get_status_display()}"
     

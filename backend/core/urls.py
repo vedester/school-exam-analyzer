@@ -14,11 +14,11 @@ urlpatterns = [
     
      # Change the home path to redirect immediately
     # permanent=False means "Temporary Redirect" (useful while developing)
-
+    # redirect root to API
     path('', RedirectView.as_view(url='/api/uploads/', permanent=False)),
-    
+
     # connect our analytics app API urls
-    path('api', include('analytics.urls')),
+    path('api/', include('analytics.urls')),
 
 
     # Add this block to serve media files in production

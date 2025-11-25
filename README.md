@@ -16,3 +16,13 @@ Teachers upload an Excel file, and the system auto-calculates ranks, means, and 
 ## How to Run Locally
 1. Backend: `cd backend && python manage.py runserver`
 2. Frontend: `cd frontend && npm run dev`
+
+
+
+# 1. Stop the server (Ctrl+C)
+# 2. Add changes
+git add .
+# 3. Commit
+git commit -m "Add matplotlib charts and improved safety logic"
+# 4. Push
+git push origin main
