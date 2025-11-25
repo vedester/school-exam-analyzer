@@ -1,9 +1,10 @@
 
-#settings.py
+# backend/core/settings.py
 import os
 from pathlib import Path
+import dj_database_url
  
-from dotenv import load_dotenv # Import this
+from dotenv import load_dotenv # Load environment variables from .env file
 
 # Load the .env file
 load_dotenv()
@@ -82,6 +83,11 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# If we are on Render (Production), use their database instead
+# Render automatically sets the 'DATABASE_URL' environment variable
+db_from_env = dj_database_url.config(conn_max_age=600)
+DATABASES['default'].update(db_from_env)
 
 
 # Password validation
