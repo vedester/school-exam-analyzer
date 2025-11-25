@@ -7,10 +7,18 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve
 
+from django.views.generic import RedirectView
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    
+     # Change the home path to redirect immediately
+    # permanent=False means "Temporary Redirect" (useful while developing)
+
+    path('', RedirectView.as_view(url='/api/uploads/', permanent=False)),
+    
     # connect our analytics app API urls
-    path('api/', include('analytics.urls')),
+    path('api', include('analytics.urls')),
 
 
     # Add this block to serve media files in production
