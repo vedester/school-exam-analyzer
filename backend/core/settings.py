@@ -108,7 +108,7 @@ USE_I18N = True
 USE_TZ = True
 
 # --- STATIC FILES (CSS) ---
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Enable Whitenoise compression/caching
