@@ -1,0 +1,18 @@
+# .gitignore for Backend
+
+# 1. The Virtual Environment (Never upload this)
+venv/
+env/
+
+# 2. The Secrets (Never upload this)
+.env
+
+# 3. The Local Database (We use a real DB on server)
+db.sqlite3
+
+# 4. Compiled Python files
+__pycache__/
+*.pyc
+
+# 5. User Uploads (Don't upload test files to GitHub)
+media/
