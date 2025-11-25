@@ -73,17 +73,26 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 # --- DATABASE CONFIGURATION ---
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR /  'db.sqlite3',
-    }
-}
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Render Deployment Logic:
-# If 'DATABASE_URL' exists (Render adds this automatically), use it.
-db_from_env = dj_database_url.config(conn_max_age=600)
-DATABASES['default'].update(db_from_env)
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True
+        )
+    }
+else:
+    # Local development (SQLite)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+# --- END DATABASE CONFIGURATION ---
+
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -110,8 +119,26 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # --- CORS SETTINGS ---
 # Set to True for the first deployment to ensure Frontend can connect easily.
 # Once your Frontend is live on Vercel, we can lock this down to the specific Vercel URL.
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+
 
 # --- FILE UPLOAD SETTINGS ---
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+
+
+import logging
+
+LOGGING = {
+    'version': 1,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}

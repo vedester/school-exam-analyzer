@@ -10,6 +10,11 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # connect our analytics app API urls
     path('api/', include('analytics.urls')),
+
+
+    
+
+    
 ]
 
 
