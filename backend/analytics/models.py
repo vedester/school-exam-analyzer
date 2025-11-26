@@ -36,6 +36,14 @@ class ExamUpload(models.Model):
     subject_chart = models.ImageField(upload_to='charts/', null=True, blank=True)
     passrate_chart = models.ImageField(upload_to='charts/', null=True, blank=True)
 
+    reports_zip = models.FileField(
+        upload_to = 'reports/%Y/%m/%d/',
+        null =True,
+        blank = True,
+        help_text="A ZIP file containing individual student reports."
+    
+    )
+
     def __str__(self):
         return f"{self.title} - {self.get_status_display()}"
     

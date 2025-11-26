@@ -1,8 +1,10 @@
+# backend/analytics/analysis.py
 import pandas as pd
 import numpy as np
 from django.core.files.base import ContentFile
 from io import BytesIO
 from .visualizer import subject_performance_chart, pass_rate_chart
+from .utils import generate_student_reports 
 
 def process_exam_file(exam_instance):
     try:
@@ -93,6 +95,17 @@ def process_exam_file(exam_instance):
         exam_instance.save()
         print("Results generated successfully.")
 
+        try:
+
+            print("Generating PDF reports...")
+            zip_buffer = generate_student_reports(df, exam_instance.title)
+                
+            filename = f"Reports_{exam_instance.title}.zip"
+            exam_instance.reports_zip.save(filename, ContentFile(zip_buffer.read()), save=False)
+            print("PDF reports generated.")
+        except Exception as pdf_error:
+                print(f"PDF Generation failed: {pdf_error}")
+            
     except Exception as e:
         exam_instance.status = 'FAILED'
         exam_instance.message = str(e)
