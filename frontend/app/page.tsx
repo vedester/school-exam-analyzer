@@ -99,15 +99,26 @@ export default function Home() {
       
       // Fetch the file from the public folder
       const response = await fetch("/sample_exam.xlsx");
+
+      // check if the file exist
+      if(!response.ok) {
+        throw new Error("Demo file not found on server.");
+      }
+      // Convert response to Blob and create a File object
       const blob = await response.blob();
+
       const demoFile = new File([blob], "sample_exam.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       
       setFile(demoFile);
       setTitle("Demo Class 2025");
       setLoading(false);
+        
+      // Optional: Auto-upload immediately after loading?
+      // handleUpload(); 
+      
     } catch (error) {
       console.error(error);
-      alert("Could not load demo data.");
+      alert("Could not load demo data.Please load the file manually.");
       setLoading(false);
     }
   };
