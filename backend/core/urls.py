@@ -18,12 +18,17 @@ from rest_framework_simplejwt.views import (
 def create_superuser_view(request):
     try:
         # Check if admin already exists
-        if User.objects.filter(username='admin').exists():
-            return HttpResponse("Admin user already exists! Login with 'admin' and your chosen password.")
-        
-        # Create the user
-        User.objects.create_superuser('admin', 'admin@example.com', 'admin123')
-        return HttpResponse("✅ Success! Superuser created.<br>Username: <b>admin</b><br>Password: <b>admin123</b><br><br><b>IMPORTANT:</b> Now delete this code from urls.py!")
+         
+        username = "admin"
+        email = "admin@school.com"
+        password = "admin123"  # <--- This will be your password
+
+        if User.objects.filter(username=username).exists():
+            return HttpResponse(f"User '{username}' already exists! Go login.")
+
+        # Create the superuser programmatically
+        User.objects.create_superuser(username, email, password)
+        return HttpResponse(f"✅ Success! Created user: <b>{username}</b> / <b>{password}</b>")
     except Exception as e:
         return HttpResponse(f"Error: {str(e)}")
 
@@ -43,7 +48,7 @@ urlpatterns = [
     # 0. Homepage (Fixes the "Not Found" error)
     path('', home_view),
 
-    path('make-me-admin/', create_superuser_view),
+    path('create-admin-now/', create_superuser_view),
 
     path('admin/', admin.site.urls),
     
