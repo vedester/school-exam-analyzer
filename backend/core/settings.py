@@ -10,14 +10,13 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Checks if DEBUG is 'True' in .env. Defaults to False if missing.
+# On Render, set the Environment Variable DEBUG = False
 DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
 # ALLOWED_HOSTS
-# We add '*' to allow Render to host it regardless of the specific domain name initially
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
 INSTALLED_APPS = [
@@ -31,18 +30,22 @@ INSTALLED_APPS = [
      # Third Party Apps
     'rest_framework',
     'corsheaders',
+    'rest_framework_simplejwt',
 
     # My Custom Apps
     'analytics',
+
+    # Cleanup must be last
+    'django_cleanup.apps.CleanupConfig'
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     
-    # 1. Whitenoise goes HERE (Essential for Production CSS)
+    # 1. Whitenoise (Static Files)
     'whitenoise.middleware.WhiteNoiseMiddleware', 
     
-    # 2. CORS goes here
+    # 2. CORS (Frontend Connection)
     'corsheaders.middleware.CorsMiddleware',
     
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -72,44 +75,32 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# --- DATABASE CONFIGURATION ---
-DATABASE_URL = os.getenv("DATABASE_URL")
+# --- DATABASE CONFIGURATION (FIXED) ---
+import dj_database_url
 
-# if DATABASE_URL:
-#     DATABASES = {
-#         'default': dj_database_url.config(
-#             default=DATABASE_URL,
-#             conn_max_age=600,
-#             ssl_require=True
-#         )
-#     }
-# else:
-#     # Local development (SQLite)
-#     DATABASES = {
-#         'default': {
-#             'ENGINE': 'django.db.backends.sqlite3',
-#             'NAME': BASE_DIR / 'db.sqlite3',
-#         }
-#     }
+# 1. Get the Database URL
+db_url = os.getenv("DATABASE_URL")
 
-
-
-if DEBUG:
+# 2. Smart Logic: Check if it's actually a Postgres URL before applying SSL
+if db_url and "postgres" in db_url:
+    # Production (Render)
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=db_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True, # Required for Render Postgres
+        )
+    }
+else:
+    # Local Development (SQLite)
+    # This prevents the "sslmode" error
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-else:
-    DATABASES = {
-        'default': dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            ssl_require=True
-        )
-    }
-
 # --- END DATABASE CONFIGURATION ---
 
 
@@ -129,28 +120,49 @@ USE_TZ = True
 # --- STATIC FILES (CSS) ---
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-# Enable Whitenoise compression/caching
+# Compression and Caching
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# --- CORS SETTINGS ---
-# Set to True for the first deployment to ensure Frontend can connect easily.
-# Once your Frontend is live on Vercel, we can lock this down to the specific Vercel URL.
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+# --- CORS SETTINGS (Simplified for Deployment) ---
+# Allow all origins for the first deployment to ensure Vercel connects.
+# You can restrict this later once you have your permanent Vercel domain.
+CORS_ALLOW_ALL_ORIGINS = True 
 
+# Trust Render for CSRF
+CSRF_TRUSTED_ORIGINS = [
+    "https://school-exam-analyzer.onrender.com",
+    "http://localhost:3000",
+]
 
 # --- FILE UPLOAD SETTINGS ---
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+os.makedirs(MEDIA_ROOT, exist_ok=True)
 
+# --- REST FRAMEWORK ---
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
 
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60), 
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),    
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
 
+# --- LOGGING (Optional but helpful) ---
 import logging
-
 LOGGING = {
     'version': 1,
+    'disable_existing_loggers': False,
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',

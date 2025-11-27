@@ -1,25 +1,68 @@
 # backend/analytics/views.py
-from rest_framework import viewsets,parsers
-from .serializers import ExamUploadSerializer
+import threading
+from rest_framework import viewsets, permissions, status, parsers
+from rest_framework.response import Response
+from rest_framework.decorators import action
+
 from .models import ExamUpload
+from .serializers import ExamUploadSerializer
+# Import the analysis engine
 from .analysis import process_exam_file 
 
-# Create your views here.
-
-class ExamUploadViewset(viewsets.ModelViewSet):
-    queryset = ExamUpload.objects.all()
+class ExamUploadViewSet(viewsets.ModelViewSet):
     serializer_class = ExamUploadSerializer
-    # Allow file uploads via multipart/form-data
+    permission_classes = [permissions.IsAuthenticated]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_staff:
+            return ExamUpload.objects.all()
+        return ExamUpload.objects.filter(uploaded_by=user)
 
     def perform_create(self, serializer):
-        #When a file is uploaded we save it
-        instance=serializer.save()
+        """
+        Save the file, then immediately trigger analysis in a background thread.
+        """
+        # 1. Save to DB
+        instance = serializer.save(uploaded_by=self.request.user)
         
-        instance.status = 'PROCESSING'
+        # 2. Trigger Analysis (Background Thread)
+        # In a massive scale app (1000s of uploads/min), use Celery.
+        # For a startup/SaaS, Threading is perfect and free.
+        self._trigger_analysis(instance)
+
+    @action(detail=True, methods=['post'])
+    def retry_processing(self, request, id=None):
+        """
+        Manually retry analysis if it failed.
+        """
+        exam = self.get_object()
+        
+        if exam.status == ExamUpload.Status.PROCESSING:
+             return Response(
+                {"detail": "File is already being processed."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Reset and run
+        exam.status = ExamUpload.Status.PENDING
+        exam.message = "Retry started..."
+        exam.save()
+        
+        self._trigger_analysis(exam)
+        
+        serializer = self.get_serializer(exam)
+        return Response(serializer.data)
+
+    def _trigger_analysis(self, instance):
+        """
+        Helper to run the heavy analysis in a separate thread
+        so the user gets a generic '201 Created' response instantly.
+        """
+        instance.status = ExamUpload.Status.PROCESSING
         instance.save()
         
-        process_exam_file(instance)
-        
-
-
+        task = threading.Thread(target=process_exam_file, args=(instance,))
+        task.start()

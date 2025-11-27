@@ -1,81 +1,171 @@
-# backend/analytics/utils.py
+#backend/analytics/utils.py
+
 import io
 import zipfile
+import pandas as pd
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 
-def generate_student_reports(df, exam_title):
+# 1. DYNAMIC GRADING FUNCTION
+def get_grade_details(score, scheme):
     """
-    Generates a ZIP file containing individual PDF report cards for each student.
-    Returns: BytesIO object (the zip file in memory)
+    Loops through the user-defined scheme to find the grade.
+    scheme = [{"min": 80, "max": 100, "grade": "EE", "remark": "...", "points": 4}, ...]
+    Returns: (Grade, Remark, Points)
+    """
+    try:
+        s = float(score)
+    except (ValueError, TypeError):
+        return "-", "", 0
+
+    # Ensure scheme is a list
+    if not isinstance(scheme, list):
+        return "-", "Invalid Scheme", 0
+
+    for rule in scheme:
+        # Check if score falls in range
+        try:
+            if rule['min'] <= s <= rule['max']:
+                return rule['grade'], rule['remark'], rule['points']
+        except KeyError:
+            continue
+    
+    return "-", "Not Graded", 0
+
+def generate_student_reports(df, exam_instance):
+    """
+    Generates professional PDF report cards using dynamic settings.
     """
     zip_buffer = io.BytesIO()
+    
+    # 1. GET DYNAMIC SETTINGS
+    scheme = exam_instance.grading_scheme
+    
+    # Base exclusion list
+    exclude_keywords = [
+        'id', 'adm', 'admission', 'index', 'no.', 'number', 
+        'name', 'student', 'phone', 'stream', 'gender', 'sex',
+        'total', 'sum', 'average', 'avg', 'mean', 
+        'rank', 'position', 'pos', 'grade', 'points', 'comment', 'remark',
+        'overall grade', 'points'
+    ]
 
-    # Identify subject columns (same logic as analysis.py, roughly)
-    # We assume the DF passed here is already cleaned and has 'Total', 'Rank', etc.
-    exclude_cols = ['id', 'adm', 'name', 'student', 'phone', 'total', 'average', 'rank', 'mean', 'grade']
-    subject_cols = [col for col in df.columns if col.lower() not in exclude_cols]
+    # Add User's Custom Ignore Columns
+    if exam_instance.custom_ignore_columns:
+        extras = [x.strip().lower() for x in exam_instance.custom_ignore_columns.split(',')]
+        exclude_keywords.extend(extras)
 
-    # --- FIX IS HERE: Removed "false_compress=False" ---
-    with zipfile.ZipFile(zip_buffer, 'a', zipfile.ZIP_DEFLATED) as zip_file:
+    # Detect subjects for the PDF table
+    subject_cols = []
+    for col in df.columns:
+        c_clean = col.lower().strip()
+        if not any(k == c_clean or k in c_clean for k in exclude_keywords):
+            # Double check if it looks numeric
+            if pd.to_numeric(df[col], errors='coerce').notnull().sum() > 0:
+                subject_cols.append(col)
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         
-        # Loop through every student in the dataframe
         for index, row in df.iterrows():
-            
-            # 1. Setup PDF Buffer
             pdf_buffer = io.BytesIO()
             p = canvas.Canvas(pdf_buffer, pagesize=A4)
             width, height = A4
-
-            # 2. Draw Header
+            
+            # --- HEADER ---
             p.setFont("Helvetica-Bold", 18)
-            p.drawCentredString(width / 2, height - 50, "OFFICIAL REPORT CARD")
-            
-            p.setFont("Helvetica", 14)
-            p.drawCentredString(width / 2, height - 75, exam_title)
-            
-            p.setLineWidth(1)
-            p.line(50, height - 90, width - 50, height - 90)
-
-            # 3. Draw Student Details
-            # Try to find a name column, otherwise use index
-            student_name = str(row.get('Name', row.get('name', f'Student {index+1}')))
+            p.drawCentredString(width / 2, height - 50, "KENYA SCHOOL ANALYTICS") 
             
             p.setFont("Helvetica-Bold", 12)
-            p.drawString(50, height - 130, f"Name: {student_name}")
-            p.drawString(50, height - 150, f"Position: {int(row.get('Rank', 0))}")
-            p.drawString(300, height - 150, f"Total Score: {row.get('Total', 0)}")
-            p.drawString(300, height - 130, f"Average: {row.get('Average', 0):.2f}")
+            p.drawCentredString(width / 2, height - 75, "COMPETENCY BASED ASSESSMENT")
+            p.drawCentredString(width / 2, height - 95, exam_instance.title)
+            
+            p.setLineWidth(2)
+            p.line(30, height - 105, width - 30, height - 105)
 
-            # 4. Draw Subjects Table (Manual Drawing)
-            y_position = height - 200
-            p.setFont("Helvetica-Bold", 12)
-            p.drawString(50, y_position, "Subject")
-            p.drawString(300, y_position, "Score")
-            y_position -= 20
-            p.line(50, y_position + 15, 400, y_position + 15)
+            # --- STUDENT DETAILS ---
+            student_name = str(row.get('Name', row.get('name', f'Student {index+1}'))).upper()
+            rank = int(row.get('Rank', 0))
+            
+            # Safely get totals/averages
+            try: total_score = float(row.get('Total', 0))
+            except: total_score = 0.0
+            
+            try: avg_score = float(row.get('Average', 0))
+            except: avg_score = 0.0
+                
+            overall_grade = row.get('Overall Grade', '-')
 
-            p.setFont("Helvetica", 12)
+            # Find Admission Number safely
+            adm = "N/A"
+            for k in ['Adm', 'adm', 'Admission', 'admission', 'Index']:
+                if k in df.columns:
+                    adm = row[k]
+                    break
+
+            p.setFont("Helvetica-Bold", 11)
+            p.drawString(50, height - 140, f"NAME: {student_name}")
+            p.drawString(50, height - 160, f"ADM NO: {adm}")
+            
+            p.drawString(350, height - 140, f"POSITION: {rank} / {len(df)}")
+            p.drawString(350, height - 160, f"PERFORMANCE: {overall_grade}")
+
+            # --- RESULTS TABLE ---
+            y = height - 200
+            
+            # Table Headers
+            p.setFillColor(colors.lightgrey)
+            p.rect(50, y-5, 500, 20, fill=True, stroke=False)
+            p.setFillColor(colors.black)
+            p.setFont("Helvetica-Bold", 10)
+            p.drawString(60, y, "SUBJECT")
+            p.drawString(250, y, "SCORE")
+            p.drawString(330, y, "LEVEL")
+            p.drawString(400, y, "REMARK")
+            
+            y -= 25
+            p.setFont("Helvetica", 10)
+
             for subject in subject_cols:
-                score = row.get(subject, 0)
-                p.drawString(50, y_position, str(subject).capitalize())
-                p.drawString(300, y_position, str(score))
-                y_position -= 20
-            
-            # 5. Footer
-            p.setFont("Helvetica-Oblique", 10)
-            p.drawCentredString(width / 2, 50, "Generated by School Exam Analyzer SaaS")
+                raw_score = row.get(subject, 0)
+                try:
+                    score = float(raw_score)
+                except (ValueError, TypeError):
+                    score = 0.0
 
-            # 6. Save PDF
+                # USE DYNAMIC GRADING
+                grade, remark, points = get_grade_details(score, scheme)
+                
+                p.drawString(60, y, str(subject).title())
+                p.drawString(250, y, f"{score:.0f}") 
+                p.drawString(330, y, grade)
+                p.drawString(400, y, remark)
+                
+                p.setLineWidth(0.5)
+                p.setStrokeColor(colors.lightgrey)
+                p.line(50, y-5, 550, y-5)
+                y -= 20
+
+            # --- FOOTER SUMMARY ---
+            y -= 30
+            p.setStrokeColor(colors.black)
+            p.setLineWidth(1)
+            p.rect(50, y-40, 500, 40)
+            p.setFont("Helvetica-Bold", 12)
+            
+            p.drawString(60, y-25, f"TOTAL: {total_score:.0f}")
+            p.drawString(200, y-25, f"AVERAGE: {avg_score:.2f}")
+            p.drawString(400, y-25, f"LEVEL: {overall_grade}")
+
+            p.setFont("Helvetica-Oblique", 8)
+            p.drawCentredString(width/2, 30, "Generated by School Analytics System")
+            
             p.showPage()
             p.save()
 
-            # 7. Add PDF to Zip
             pdf_buffer.seek(0)
-            # Create a clean filename (remove weird characters)
-            clean_name = "".join([c for c in student_name if c.isalpha() or c.isdigit() or c==' ']).strip()
-            zip_file.writestr(f"{int(row.get('Rank', 0))}_{clean_name}.pdf", pdf_buffer.read())
+            clean_name = "".join([c for c in student_name if c.isalnum() or c==' ']).strip()
+            zip_file.writestr(f"{rank}_{clean_name}.pdf", pdf_buffer.read())
 
     zip_buffer.seek(0)
     return zip_buffer
