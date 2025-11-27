@@ -1,8 +1,10 @@
 # backend/core/urls.py
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.static import serve
+from django.http import JsonResponse
 
 # Import JWT views
 from rest_framework_simplejwt.views import (
@@ -10,19 +12,34 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
+# Simple view for the homepage so it doesn't look broken
+def home_view(request):
+    return JsonResponse({
+         
+        "status": "Online 🚀😂😂",
+        "message": "School Analytics API is running successfully.😎😋",
+        "endpoints": {
+            "upload_exam": "/api/analytics/exam-uploads/",
+            "admin": "/admin/"
+        }
+    })
+
 urlpatterns = [
+    # 0. Homepage (Fixes the "Not Found" error)
+    path('', home_view),
+
     path('admin/', admin.site.urls),
     
     # 1. Analytics API
     path('api/analytics/', include('analytics.urls')),
 
-    # 2. Authentication Endpoints (Login/Refresh)
+    # 2. Authentication Endpoints
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-]
 
-# 3. Media Handling
-# Only serve media via Django in DEBUG mode. 
-# In production, Nginx/Apache/WhiteNoise handles this.
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # 3. FORCE MEDIA SERVING (Critical for Render Free Tier)
+    # This tells Django to serve files from the 'media' folder even if DEBUG=False
+    re_path(r'^media/(?P<path>.*)$', serve, {
+        'document_root': settings.MEDIA_ROOT,
+    }),
+]
