@@ -8,7 +8,7 @@ import Image from "next/image";
 import { 
   UploadCloud, FileSpreadsheet, Download, CheckCircle, Loader2, 
   BarChart3, PieChart, FileArchive, LogOut, Settings, Trash2, Plus, 
-  BookOpen, LayoutList
+  BookOpen, LayoutList, FileQuestion, Play
 } from "lucide-react";
 
 // --- TYPES ---
@@ -39,8 +39,7 @@ interface GradingRule {
   points: number;
 }
 
-// --- PRESETS (The "Magic" Buttons) ---
-
+// --- PRESETS ---
 const SCHEME_CBC: GradingRule[] = [
   { min: 80, max: 100, grade: "EE", remark: "Exceeding Expectations", points: 4 },
   { min: 50, max: 79,  grade: "ME", "remark": "Meeting Expectations",   points: 3 },
@@ -76,7 +75,6 @@ export default function Home() {
   const [gradingScheme, setGradingScheme] = useState<GradingRule[]>(SCHEME_CBC);
   const [activePreset, setActivePreset] = useState<"CBC" | "844" | "Custom">("CBC");
 
-  // Auth Check
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) router.push("/login");
@@ -93,6 +91,27 @@ export default function Home() {
     }
   };
 
+  // --- NEW: AUTO-LOAD DEMO DATA ---
+  const loadDemoData = async () => {
+    try {
+      setLoading(true);
+      setProgressMsg("Fetching demo file...");
+      
+      // Fetch the file from the public folder
+      const response = await fetch("/sample_exam.xlsx");
+      const blob = await response.blob();
+      const demoFile = new File([blob], "sample_exam.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      
+      setFile(demoFile);
+      setTitle("Demo Class 2025");
+      setLoading(false);
+    } catch (error) {
+      console.error(error);
+      alert("Could not load demo data.");
+      setLoading(false);
+    }
+  };
+
   // --- PRESET HANDLERS ---
   const applyPreset = (type: "CBC" | "844") => {
     setActivePreset(type);
@@ -101,7 +120,7 @@ export default function Home() {
   };
 
   const updateRule = (index: number, field: keyof GradingRule, value: string | number) => {
-    setActivePreset("Custom"); // Switch to custom if they edit
+    setActivePreset("Custom");
     const newScheme = [...gradingScheme];
     // @ts-expect-error: dynamic assignment
     newScheme[index][field] = value;
@@ -127,7 +146,7 @@ export default function Home() {
 
     setLoading(true);
     setStatus("processing");
-    setProgressMsg("Uploading...");
+    setProgressMsg("Uploading file...");
 
     const formData = new FormData();
     formData.append("title", title);
@@ -196,6 +215,7 @@ export default function Home() {
             <input 
               type="text" 
               placeholder="e.g. Grade 7 Term 1 2024" 
+              value={title}
               className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-black"
               onChange={(e) => setTitle(e.target.value)}
             />
@@ -221,21 +241,10 @@ export default function Home() {
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Grading System</label>
                   <div className="flex gap-3 mb-4">
-                    <button 
-                      onClick={() => applyPreset("CBC")}
-                      className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition flex items-center justify-center gap-2
-                        ${activePreset === "CBC" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 hover:bg-slate-50"}
-                      `}
-                    >
-                      <BookOpen className="w-4 h-4" /> CBC (Junior School)
+                    <button onClick={() => applyPreset("CBC")} className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition flex items-center justify-center gap-2 ${activePreset === "CBC" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 hover:bg-slate-50"}`}>
+                      <BookOpen className="w-4 h-4" /> CBC (Junior)
                     </button>
-                    
-                    <button 
-                      onClick={() => applyPreset("844")}
-                      className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition flex items-center justify-center gap-2
-                        ${activePreset === "844" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 hover:bg-slate-50"}
-                      `}
-                    >
+                    <button onClick={() => applyPreset("844")} className={`flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition flex items-center justify-center gap-2 ${activePreset === "844" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 hover:bg-slate-50"}`}>
                       <LayoutList className="w-4 h-4" /> 8-4-4 (Primary)
                     </button>
                   </div>
@@ -255,27 +264,17 @@ export default function Home() {
                       <tbody className="divide-y divide-slate-100 bg-white">
                         {gradingScheme.map((rule, idx) => (
                           <tr key={idx} className="hover:bg-slate-50">
-                            <td className="p-2">
-                              <input type="number" value={rule.min} onChange={(e) => updateRule(idx, 'min', Number(e.target.value))} className="w-14 p-1 border rounded text-center"/>
-                            </td>
-                            <td className="p-2">
-                              <input type="number" value={rule.max} onChange={(e) => updateRule(idx, 'max', Number(e.target.value))} className="w-14 p-1 border rounded text-center"/>
-                            </td>
-                            <td className="p-2">
-                              <input type="text" value={rule.grade} onChange={(e) => updateRule(idx, 'grade', e.target.value)} className="w-16 p-1 border rounded text-center font-bold text-blue-700"/>
-                            </td>
-                            <td className="p-2">
-                              <input type="text" value={rule.remark} onChange={(e) => updateRule(idx, 'remark', e.target.value)} className="w-full p-1 border rounded"/>
-                            </td>
-                            <td className="p-2 text-center">
-                              <button onClick={() => removeRule(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
-                            </td>
+                            <td className="p-2"><input type="number" value={rule.min} onChange={(e) => updateRule(idx, 'min', Number(e.target.value))} className="w-14 p-1 border rounded text-center"/></td>
+                            <td className="p-2"><input type="number" value={rule.max} onChange={(e) => updateRule(idx, 'max', Number(e.target.value))} className="w-14 p-1 border rounded text-center"/></td>
+                            <td className="p-2"><input type="text" value={rule.grade} onChange={(e) => updateRule(idx, 'grade', e.target.value)} className="w-16 p-1 border rounded text-center font-bold text-blue-700"/></td>
+                            <td className="p-2"><input type="text" value={rule.remark} onChange={(e) => updateRule(idx, 'remark', e.target.value)} className="w-full p-1 border rounded"/></td>
+                            <td className="p-2 text-center"><button onClick={() => removeRule(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                     <button onClick={addRule} className="w-full py-2 bg-slate-50 text-slate-500 text-xs font-bold hover:bg-slate-100 flex items-center justify-center gap-1 border-t border-slate-200">
-                      <Plus className="w-3 h-3"/> Add Grading Rule
+                      <Plus className="w-3 h-3"/> Add Rule
                     </button>
                   </div>
                 </div>
@@ -283,31 +282,31 @@ export default function Home() {
                 {/* 2. IGNORE COLUMNS */}
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Exclude Non-Subject Columns</label>
-                  <p className="text-xs text-slate-400 mb-2">Does your Excel file have Fees, UPI, or Phone numbers? List them here so they don&apos;t get graded.</p>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. UPI, Fees Balance, Phone Number"
-                    value={ignoreColumns}
-                    onChange={(e) => setIgnoreColumns(e.target.value)}
-                    className="w-full p-3 border border-slate-300 rounded-lg text-sm text-black placeholder:text-slate-400"
-                  />
+                  <p className="text-xs text-slate-400 mb-2">Does your Excel file have Fees, UPI, or Phone numbers?</p>
+                  <input type="text" placeholder="e.g. UPI, Fees Balance, Phone Number" value={ignoreColumns} onChange={(e) => setIgnoreColumns(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm text-black placeholder:text-slate-400"/>
                 </div>
-
               </div>
             )}
           </div>
 
           {/* UPLOAD AREA */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Select Excel File</label>
-            <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center hover:bg-blue-50 hover:border-blue-400 transition cursor-pointer relative group">
-              <input 
-                type="file" 
-                accept=".xlsx, .csv"
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                onChange={handleFileChange}
-              />
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-bold text-slate-700">Select Excel File</label>
               
+              {/* HELP LINKS */}
+              <div className="flex gap-3 text-sm">
+                <button onClick={loadDemoData} className="text-blue-600 hover:text-blue-800 font-semibold flex items-center">
+                  <Play className="w-3 h-3 mr-1" /> Use Demo Data
+                </button>
+                <a href="/sample_exam.xlsx" download className="text-slate-500 hover:text-slate-700 flex items-center">
+                  <FileQuestion className="w-3 h-3 mr-1" /> Download Template
+                </a>
+              </div>
+            </div>
+
+            <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center hover:bg-blue-50 hover:border-blue-400 transition cursor-pointer relative group">
+              <input type="file" accept=".xlsx, .csv" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileChange}/>
               {file ? (
                 <div className="flex flex-col items-center text-blue-600">
                   <FileSpreadsheet className="h-10 w-10 mb-2" />
@@ -323,13 +322,7 @@ export default function Home() {
             </div>
           </div>
 
-          <button 
-            onClick={handleUpload}
-            disabled={loading}
-            className={`w-full py-4 rounded-xl font-bold text-white text-lg shadow-lg transition flex items-center justify-center
-              ${loading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/30'}
-            `}
-          >
+          <button onClick={handleUpload} disabled={loading} className={`w-full py-4 rounded-xl font-bold text-white text-lg shadow-lg transition flex items-center justify-center ${loading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/30'}`}>
             {loading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> {progressMsg}</> : "Start Analysis 🚀"}
           </button>
         </div>
@@ -337,11 +330,9 @@ export default function Home() {
         {/* RESULTS SECTION */}
         {status === "completed" && resultData && (
           <div className="mt-10 pt-10 border-t-2 border-dashed border-slate-200 animate-in fade-in slide-in-from-bottom-4">
-            
             <div className="flex items-center justify-center text-green-600 font-bold mb-6 text-2xl">
               <CheckCircle className="mr-2 h-8 w-8" /> Analysis Complete!
             </div>
-            
             {/* KPI CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               <div className="bg-blue-50 p-4 rounded-xl text-center border border-blue-100">
@@ -357,7 +348,6 @@ export default function Home() {
                 <div className="text-xl font-bold text-purple-700 truncate px-2">{resultData.analysis_summary?.top_student}</div>
               </div>
             </div>
-
             {/* CHARTS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               {resultData.subject_chart && (
@@ -377,7 +367,6 @@ export default function Home() {
                 </div>
               )}
             </div>
-            
             {/* DOWNLOADS */}
             <div className="grid grid-cols-1 gap-4">
               {resultData.processed_file && (
@@ -393,7 +382,6 @@ export default function Home() {
             </div>
           </div>
         )}
-
       </div>
     </main>
   );

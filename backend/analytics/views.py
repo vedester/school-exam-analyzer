@@ -1,13 +1,25 @@
 # backend/analytics/views.py
 import threading
-from rest_framework import viewsets, permissions, status, parsers
+from rest_framework import viewsets, permissions, status, parsers, generics
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
+from django.contrib.auth.models import User
+
+
 
 from .models import ExamUpload
-from .serializers import ExamUploadSerializer
+from .serializers import ExamUploadSerializer, RegisterSerializer
 # Import the analysis engine
 from .analysis import process_exam_file 
+
+
+class RegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    permission_classes = (AllowAny,) # IMPORTANT: Allow anonymous users
+    serializer_class = RegisterSerializer
+    
+
 
 class ExamUploadViewSet(viewsets.ModelViewSet):
     serializer_class = ExamUploadSerializer
