@@ -4,7 +4,7 @@ from .models import ExamUpload
 @admin.register(ExamUpload)
 class ExamUploadAdmin(admin.ModelAdmin):
     # columns to show in the list view
-    list_display = ('title', 'uploaded_at', 'status', 'message')
+    list_display = ('title', 'uploaded_at', 'uploaded_at','status', 'message')
     # adds side filters for easy filtering
     list_filter = ('status', 'uploaded_at' ,'uploaded_by')
     # enables search box or bar to search by title or message

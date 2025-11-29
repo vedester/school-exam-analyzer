@@ -41,7 +41,7 @@ class ExamUpload(models.Model):
 
     # 2. Ownership
     uploaded_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        settings.AUTH_USER_MODEL,# <--- This points to Django's Built-in User
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
