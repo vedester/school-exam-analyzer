@@ -6,6 +6,9 @@ from django.core.validators import FileExtensionValidator
 from django.utils.translation import gettext_lazy as _
 from django.utils.text import slugify
 
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
 def exam_upload_path(instance, filename):
     """
     Generates a unique path for uploaded files to prevent filename collisions.
@@ -141,3 +144,22 @@ class ExamUpload(models.Model):
     @property
     def is_completed(self):
         return self.status == self.Status.COMPLETED
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
+    school_name = models.CharField(max_length=255, default="My School", help_text="Appears on Report Cards")
+    phone_number = models.CharField(max_length=15, blank=True, null=True, help_text="For M-Pesa Payments")
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.school_name}"
+
+# Signal: Automatically create a Profile when a User is created
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.create(user=instance)
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def save_user_profile(sender, instance, **kwargs):
+    instance.profile.save()

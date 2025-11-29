@@ -6,14 +6,22 @@ import Link from "next/link";
 // 1. Import isAxiosError for safe type checking (optional but good practice)
 import { isAxiosError } from "axios"; 
 import api from "@/lib/api"; 
-import { Lock, User, Mail, CheckCircle, AlertCircle } from "lucide-react";
+import { Lock, User, Mail, CheckCircle, AlertCircle , School ,Phone} from "lucide-react";
 
 export default function RegisterPage() {
-  const [formData, setFormData] = useState({ username: "", email: "", password: "" });
+  const [formData, setFormData] = useState({ 
+    username: "",
+     email: "",
+      password: "",
+      school_name: "",
+      phone_number: ""
+     });
+  // 2. Use useState for loading and error states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
 
+  // 3. Handle form submission 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -30,6 +38,7 @@ export default function RegisterPage() {
       // 3. Safe Type Guard 
     } catch (err: unknown) { // <--- 2. CHANGED 'any' TO 'unknown'
       if (isAxiosError(err) && err.response?.data) {
+        
         const data = err.response.data as {username?: string[]};
         // 4. Handle specific error messages
         if (data.username){
@@ -86,6 +95,38 @@ export default function RegisterPage() {
                 placeholder="teacher@school.com"
                 value={formData.email}
                 onChange={(e) => setFormData({...formData, email: e.target.value})}
+                required
+              />
+            </div>
+          </div>
+
+          {/* SCHOOL NAME (NEW) */}
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">School Name</label>
+            <div className="relative">
+              <School className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+              <input 
+                type="text"
+                className="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition"
+                placeholder="e.g. Alliance High School"
+                value={formData.school_name}
+                onChange={(e) => setFormData({...formData, school_name: e.target.value})}
+                required
+              />
+            </div>
+          </div>
+
+          {/* PHONE NUMBER (NEW) */}
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">M-Pesa Phone</label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+              <input 
+                type="tel"
+                className="w-full pl-10 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none transition"
+                placeholder="e.g. 0712345678"
+                value={formData.phone_number}
+                onChange={(e) => setFormData({...formData, phone_number: e.target.value})}
                 required
               />
             </div>

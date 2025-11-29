@@ -15,7 +15,8 @@ def get_grade_details(score, scheme):
     Returns: (Grade, Remark, Points)
     """
     try:
-        s = float(score)
+        s = round(float(score))
+
     except (ValueError, TypeError):
         return "-", "", 0
 
@@ -38,11 +39,17 @@ def generate_student_reports(df, exam_instance):
     Generates professional PDF report cards using dynamic settings.
     """
     zip_buffer = io.BytesIO()
+       # 1. Get School Name
+    try:
+        school_name = exam_instance.uploaded_by.profile.school_name.upper()
+    except:
+        school_name = "KENYA SCHOOL ANALYTICS"
     
-    # 1. GET DYNAMIC SETTINGS
+   # 2. Get Grading Scheme
     scheme = exam_instance.grading_scheme
     
     # Base exclusion list
+     # 3. Detect Subjects (The Gatekeeper Logic - Keeps bad columns out)
     exclude_keywords = [
         'id', 'adm', 'admission', 'index', 'no.', 'number', 
         'name', 'student', 'phone', 'stream', 'gender', 'sex',
@@ -57,6 +64,7 @@ def generate_student_reports(df, exam_instance):
         exclude_keywords.extend(extras)
 
     # Detect subjects for the PDF table
+    
     subject_cols = []
     for col in df.columns:
         c_clean = col.lower().strip()
@@ -64,6 +72,24 @@ def generate_student_reports(df, exam_instance):
             # Double check if it looks numeric
             if pd.to_numeric(df[col], errors='coerce').notnull().sum() > 0:
                 subject_cols.append(col)
+
+ # 4. Detect Admission Column (The Detective Logic - Finds the Right ID)
+    # We do this ONCE before the loop to save processing time
+    adm_col_name = None
+    
+    # Priority 1: Strong clues (adm, reg, upi) - Catches "admision", "Adm No", "Reg"
+    for col in df.columns:
+        if any(x in col.lower() for x in ['adm', 'reg', 'upi']):
+            adm_col_name = col
+            break
+            
+    # Priority 2: Weak clues (index, id) - Only if Priority 1 failed
+    if not adm_col_name:
+        for col in df.columns:
+            if any(x in col.lower() for x in ['index', 'student id', 'unique']):
+                adm_col_name = col
+                break
+
 
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         
@@ -74,7 +100,7 @@ def generate_student_reports(df, exam_instance):
             
             # --- HEADER ---
             p.setFont("Helvetica-Bold", 18)
-            p.drawCentredString(width / 2, height - 50, "KENYA SCHOOL ANALYTICS") 
+            p.drawCentredString(width / 2, height - 50, school_name) 
             
             p.setFont("Helvetica-Bold", 12)
             p.drawCentredString(width / 2, height - 75, "COMPETENCY BASED ASSESSMENT")
@@ -96,12 +122,19 @@ def generate_student_reports(df, exam_instance):
                 
             overall_grade = row.get('Overall Grade', '-')
 
-            # Find Admission Number safely
-            adm = "N/A"
-            for k in ['Adm', 'adm', 'Admission', 'admission', 'Index']:
-                if k in df.columns:
-                    adm = row[k]
-                    break
+            # # Find Admission Number safely
+            # adm = "N/A"
+            # for k in ['Adm', 'adm', 'Admission', 'admission', 'Index']:
+            #     if k in df.columns:
+            #         adm = row[k]
+            #         break
+             # --- USE DETECTED ADMISSION COLUMN ---
+            if adm_col_name:
+                raw_adm = row.get(adm_col_name, "N/A")
+                # Remove decimals (e.g., 4344.0 -> 4344)
+                adm = str(raw_adm).split('.')[0]
+            else:
+                adm = "N/A"
 
             p.setFont("Helvetica-Bold", 11)
             p.drawString(50, height - 140, f"NAME: {student_name}")

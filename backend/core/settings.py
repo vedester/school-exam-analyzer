@@ -149,6 +149,16 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+
+     # ADD THIS BLOCK:
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '5/minute',  # Guests can only try 5 times/min (Register/Login)
+        'user': '10/minute', # Logged in users can make 10 requests/min
+    }
 }
 
 from datetime import timedelta
